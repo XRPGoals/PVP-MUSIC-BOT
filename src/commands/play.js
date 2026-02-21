@@ -14,16 +14,31 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   await interaction.deferReply();
 
-  const query = interaction.options.getString("query", true);
+  try {
+    const query = interaction.options.getString("query", true);
 
-  await connectToVoice(interaction);
+    // Optional: quick debug so you can see it got past defer
+    // await interaction.editReply(`Searching: **${query}** ...`);
 
-  const resolved = await resolveToTrack(query);
-  await enqueueAndPlay(interaction.guildId, resolved);
+    await connectToVoice(interaction);
 
-  if (resolved.multi) {
-    await interaction.editReply(`Queued **${resolved.tracks.length}** tracks from **${resolved.title}**.`);
-  } else {
-    await interaction.editReply(`Queued: **${resolved.title}**`);
+    const resolved = await resolveToTrack(query);
+    await enqueueAndPlay(interaction.guildId, resolved);
+
+    if (resolved.multi) {
+      await interaction.editReply(`Queued **${resolved.tracks.length}** tracks from **${resolved.title}**.`);
+    } else {
+      await interaction.editReply(`Queued: **${resolved.title}**`);
+    }
+  } catch (e) {
+    console.error("PLAY COMMAND ERROR:", e);
+
+    const msg =
+      e?.message
+        ? `❌ ${e.message}`
+        : "❌ Play failed (unknown error). Check Railway logs.";
+
+    // Always answer the interaction
+    await interaction.editReply(msg);
   }
 }
