@@ -2,6 +2,7 @@ import "dotenv/config";
 import { Client, Collection, GatewayIntentBits } from "discord.js";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import play from "play-dl";
 
 // ---- Spotify auth for play-dl ----
@@ -18,22 +19,30 @@ if (process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET) {
 }
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildVoiceStates
-  ]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates]
 });
 
 client.commands = new Collection();
 
-// Load commands dynamically
-const commandsPath = path.join(process.cwd(), "src", "commands");
-const commandFiles = fs.readdirSync(commandsPath).filter(f => f.endsWith(".js"));
+// ---------- LOAD COMMANDS (FIXED FOR RAILWAY) ----------
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// This points to: /app/src/commands on Railway
+const commandsPath = path.join(__dirname, "commands");
+const commandFiles = fs.readdirSync(commandsPath).filter((f) => f.endsWith(".js"));
 
 for (const file of commandFiles) {
-  const cmd = await import(`./commands/${file}`);
+  const filePath = path.join(commandsPath, file);
+  const cmd = await import(pathToFileURL(filePath).href);
   client.commands.set(cmd.data.name, cmd);
 }
+// ------------------------------------------------------
+
+// Helpful crash logging (so Railway shows the real error)
+process.on("unhandledRejection", (err) => console.error("unhandledRejection:", err));
+process.on("uncaughtException", (err) => console.error("uncaughtException:", err));
+client.on("error", (err) => console.error("discord client error:", err));
 
 client.on("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
